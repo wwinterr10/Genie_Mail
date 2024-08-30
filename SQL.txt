@@ -1,0 +1,129 @@
+--member 관련 sql
+--1. 멤버 테이블 생성
+CREATE TABLE t_member (
+	NO number(3) PRIMARY KEY
+	, id varchar2(20) NOT NULL
+	, pw varchar2(20) NOT NULL
+	, name varchar2(20) NOT NULL
+	, birth varchar2(6) NOT NULL
+	, hp_num varchar2(11) NOT NULL
+	, reg_date DATE DEFAULT sysdate
+);
+
+--멤버 no 시퀀스 생성
+CREATE SEQUENCE seq_t_member_no nocache
+ START WITH 001;
+
+
+--2. 회원가입 진행
+INSERT INTO t_member(NO, id, pw, name, birth, hp_num)
+ values(seq_t_member_no.nextval, ?, ?, ?, ?, ?);
+
+--ID 중복체크
+SELECT ID FROM T_MEMBER WHERE ID = ?;
+
+--3. 로그인
+SELECT ID, PW FROM T_MEMBER WHERE ID = ?;
+
+--ID 찾기
+SELECT ID FROM T_MEMBER WHERE NAME = ?
+   AND BIRTH = ?
+   AND HP_NUM = ?;
+  
+--PW 찾기
+SELECT ID, NAME FROM T_MEMBER WHERE ID = ?
+   AND NAME = ?
+   AND BIRTH = ?
+   AND HP_NUM = ?;
+  
+--PW 확인
+SELECT ID, PW FROM T_MEMBER WHERE ID = ? AND PW = ?;
+
+--PW 변경
+UPDATE T_MEMBER SET PW = ? WHERE ID = ?;
+
+--휴대폰번호 변경
+UPDATE T_MEMBER SET HP_NUM = ? WHERE ID = ?;
+
+--메일 테이블 생성
+CREATE TABLE t_mail (
+	NO number(3) PRIMARY KEY 
+	, sender varchar2(20) NOT NULL
+	, recipient varchar2(20) NOT NULL
+	, title varchar2(50) NOT NULL
+	, contents varchar2(500) NOT NULL
+	, send_date date DEFAULT sysdate
+	, readYN number DEFAULT 0
+);
+
+--메일 테이블의 pk 시퀀스 생성
+CREATE SEQUENCE seq_t_mail_no nocache
+ START WITH 001;
+
+--받은 메일함과 보낸 메일함 테이블 생성
+CREATE TABLE t_recive_mail (
+	NO number(3) NOT NULL
+	, CONSTRAINT fk_no3 FOREIGN KEY(no) REFERENCES t_mail(no)
+);
+
+CREATE TABLE t_send_mail (
+	NO number(3) NOT NULL
+	, CONSTRAINT fk_no3 FOREIGN KEY(no) REFERENCES t_mail(no)
+);
+ 
+
+--메일 전송 시 수신인 존재 여부 체크
+SELECT ID FROM T_MEMBER WHERE ID = ?;
+
+--메일 전송 + 받은 메일함과 보낸 메일함에 메일 테이블의 PK 삽입
+INSERT INTO T_MAIL(NO, SENDER, RECIPIENT, TITLE, CONTENTS)
+	VALUES(SEQ_T_MAIL_NO.NEXTVAL, ?, ?, ?, ?);
+
+SELECT NO FROM T_MAIL WHERE SENDER = ? AND RECIPIENT = ? AND TITLE = ? AND CONTENTS = ?;
+
+INSERT INTO T_SEND_MAIL (NO) VALUES (?);
+
+INSERT INTO T_RECIVE_MAIL (NO) VALUES (?);
+
+--메일 수신여부 확인을 위해 READYN 컬럼 업데이트
+--메일 선택 조회시
+UPDATE T_MAIL SET READYN = 1 WHERE NO = ?;
+--메일 전체 조회시
+UPDATE T_MAIL SET READYN = 1 WHERE RECIPIENT = ?;
+
+--받은 메일 전체 조회
+SELECT * FROM t_mail WHERE RECIPIENT = ?
+   AND NO IN (SELECT NO FROM T_RECIVE_MAIL)
+   AND NO NOT IN (SELECT NO FROM T_GARBAGE);
+  
+--받은 메일 선택 조회
+SELECT * FROM T_MAIL WHERE RECIPIENT = ?
+   AND (SENDER LIKE '%' || ? || '%'
+        OR TITLE LIKE '%' || ? || '%'
+        OR CONTENTS LIKE '%' || ? || '%')
+   AND NO IN (SELECT NO FROM T_RECIVE_MAIL)
+   AND NO NOT IN (SELECT NO FROM T_GARBAGE);
+
+
+--보낸메일함 조회
+SELECT * FROM t_mail WHERE sender = ? AND NO IN (SELECT NO FROM t_send_mail);
+
+--보낸메일함 삭제
+DELETE FROM t_send_mail m1 WHERE NO IN (SELECT NO FROM t_mail m2 WHERE sender = ? AND m2.NO = m1.no);
+
+-- 휴지통 메일 조회
+SELECT * FROM t_mail m1 WHERE M1.RECIPIENT = ? AND M1.NO IN (SELECT NO FROM T_GARBAGE);
+
+--휴지통으로 이동
+INSERT INTO T_GARBAGE (NO) VALUES (?);
+
+--복원
+DELETE FROM t_garbage WHERE NO = ?;
+
+--휴지통비우기
+DELETE FROM t_mail WHERE recipient = ? AND NO IN (SELECT NO FROM t_garbage);
+
+--메일 삭제
+DELETE FROM T_SEND_MAIL WHERE NO = ?;
+DELETE FROM T_RECIVE_MAIL WHERE NO = ?;
+DELETE FROM T_MAIL WHERE NO = ?;
